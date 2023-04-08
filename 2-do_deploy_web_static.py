@@ -1,5 +1,6 @@
 #!/usr/bin/python3
-"""Compress web static package
+"""a Fabric script (based on the file 1-pack_web_static.py) 
+that distributes an archive to your web servers, using the function do_deploy:
 """
 from fabric.api import *
 from datetime import datetime
@@ -8,7 +9,6 @@ from os import path
 
 env.hosts = ['54.175.198.234', '54.90.19.199']
 env.user = 'ubuntu'
-env.key_filename = '~/.ssh/id_rsa'
 
 def do_pack():
     """
