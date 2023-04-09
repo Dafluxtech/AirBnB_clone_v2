@@ -1,52 +1,52 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 """
-Fabric script that distributes an archive to web servers
+Fabric script that distributes an archive to your web servers
 """
 
-import os.path
-from fabric.api import env, put, run, sudo
+from datetime import datetime
+from fabric.api import *
+import os
+
+env.hosts = ["54.175.198.234", "54.90.19.199"]
+env.user = "ubuntu"
 
 
-env.hosts = ['54.175.198.234', '54.90.19.199']
+def do_pack():
+    """
+        return the archive path if archive has generated correctly.
+    """
+
+    local("mkdir -p versions")
+    date = datetime.now().strftime("%Y%m%d%H%M%S")
+    archived_f_path = "versions/web_static_{}.tgz".format(date)
+    t_gzip_archive = local("tar -cvzf {} web_static".format(archived_f_path))
+
+    if t_gzip_archive.succeeded:
+        return archived_f_path
+    else:
+        return None
 
 
 def do_deploy(archive_path):
-    """Distributes an archive to web servers"""
-    if not os.path.exists(archive_path):
-        return False
+    """
+        Distribute archive.
+    """
+    if os.path.exists(archive_path):
+        archived_file = archive_path[9:]
+        newest_version = "/data/web_static/releases/" + archived_file[:-4]
+        archived_file = "/tmp/" + archived_file
+        put(archive_path, "/tmp/")
+        run("sudo mkdir -p {}".format(newest_version))
+        run("sudo tar -xzf {} -C {}/".format(archived_file,
+                                             newest_version))
+        run("sudo rm {}".format(archived_file))
+        run("sudo mv {}/web_static/* {}".format(newest_version,
+                                                newest_version))
+        run("sudo rm -rf {}/web_static".format(newest_version))
+        run("sudo rm -rf /data/web_static/current")
+        run("sudo ln -s {} /data/web_static/current".format(newest_version))
 
-    # Upload the archive to the web server
-    put(archive_path, '/tmp/')
+        print("New version deployed!")
+        return True
 
-    # Get the archive filename without extension
-    archive_filename = os.path.basename(archive_path)
-    archive_name = os.path.splitext(archive_filename)[0]
-
-    # Create the release directory
-    run('mkdir -p /data/web_static/releases/{}'.format(archive_name))
-
-    # Uncompress the archive to the release directory
-    run('tar -xzf /tmp/{} -C /data/web_static/releases/{}'
-        .format(archive_filename, archive_name))
-
-    # Delete the archive from the web server
-    run('rm /tmp/{}'.format(archive_filename))
-
-    # Move the files to the final location
-    run('mv /data/web_static/releases/{}/web_static/* \
-        /data/web_static/releases/{}/'.format(archive_name, archive_name))
-
-    # Remove the empty directory
-    run('rm -rf /data/web_static/releases/{}/web_static'
-        .format(archive_name))
-
-    # Delete the symbolic link
-    run('rm -f /data/web_static/current')
-
-    # Create a new symbolic link
-    run('ln -s /data/web_static/releases/{} /data/web_static/current'
-        .format(archive_name))
-
-    print("New version deployed!")
-    return True
-
+    return False
