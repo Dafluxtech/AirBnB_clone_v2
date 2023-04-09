@@ -1,31 +1,52 @@
-#!/usr/bin/python3
-"""a Fabric script (based on the file 1-pack_web_static.py) 
-that distributes an archive to your web servers, using the function do_deploy:
+#!/usr/bin/env python3
 """
-from fabric.api import *
-from datetime import datetime
-from os import path
+Fabric script that distributes an archive to web servers
+"""
+
+import os.path
+from fabric.api import env, put, run, sudo
 
 
 env.hosts = ['54.175.198.234', '54.90.19.199']
-env.user = 'ubuntu'
+
 
 def do_deploy(archive_path):
-    """distributes an archive to the web servers"""
-    if exists(archive_path) is False:
+    """Distributes an archive to web servers"""
+    if not os.path.exists(archive_path):
         return False
-    try:
-        file_n = archive_path.split("/")[-1]
-        no_ext = file_n.split(".")[0]
-        path = "/data/web_static/releases/"
-        put(archive_path, '/tmp/')
-        run('mkdir -p {}{}/'.format(path, no_ext))
-        run('tar -xzf /tmp/{} -C {}{}/'.format(file_n, path, no_ext))
-        run('rm /tmp/{}'.format(file_n))
-        run('mv {0}{1}/web_static/* {0}{1}/'.format(path, no_ext))
-        run('rm -rf {}{}/web_static'.format(path, no_ext))
-        run('rm -rf /data/web_static/current')
-        run('ln -s {}{}/ /data/web_static/current'.format(path, no_ext))
-        return True
-    except:
-        return False
+
+    # Upload the archive to the web server
+    put(archive_path, '/tmp/')
+
+    # Get the archive filename without extension
+    archive_filename = os.path.basename(archive_path)
+    archive_name = os.path.splitext(archive_filename)[0]
+
+    # Create the release directory
+    run('mkdir -p /data/web_static/releases/{}'.format(archive_name))
+
+    # Uncompress the archive to the release directory
+    run('tar -xzf /tmp/{} -C /data/web_static/releases/{}'
+        .format(archive_filename, archive_name))
+
+    # Delete the archive from the web server
+    run('rm /tmp/{}'.format(archive_filename))
+
+    # Move the files to the final location
+    run('mv /data/web_static/releases/{}/web_static/* \
+        /data/web_static/releases/{}/'.format(archive_name, archive_name))
+
+    # Remove the empty directory
+    run('rm -rf /data/web_static/releases/{}/web_static'
+        .format(archive_name))
+
+    # Delete the symbolic link
+    run('rm -f /data/web_static/current')
+
+    # Create a new symbolic link
+    run('ln -s /data/web_static/releases/{} /data/web_static/current'
+        .format(archive_name))
+
+    print("New version deployed!")
+    return True
+
